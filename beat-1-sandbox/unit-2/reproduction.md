@@ -32,31 +32,34 @@ https://github.com/codepath/pathreview-ai301-fa26-s1/issues/12#issuecomment-6882
 https://github.com/codepath/pathreview-ai301-fa26-s1/issues/12#issuecomment-6883015086
 
 ````markdown
-### Reproduction & Progress Report — Issue #12
+I reproduced this on current `main`: the existing snapshot test cannot fail when a prompt template changes, so the protection issue #12 asks for isn't in place yet.
 
-* **Environment:** 
-  * OS: macOS (Apple Silicon M5)
-  * Python: 3.11+ running in a local virtual environment
-  * Stack: FastAPI / Python backend test harness
+**Environment**
+- Code: my fork of this repo at `main`, commit `f89c06f`
+- macOS 26.6.1 (arm64, Apple M5), Python 3.14.2, pytest 9.2.0
+- Setup: `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` (the install step from `make setup`; no Docker or database is needed for this test)
 
-* **Steps & Commands Executed:**
-  1. Cloned the repository and set up the local environment:
-     ```bash
-     git clone [https://github.com/SushilPoudel2005/pathreview-ai301-fa26-s1.git](https://github.com/SushilPoudel2005/pathreview-ai301-fa26-s1.git)
-     cd pathreview-ai301-fa26-s1
-     make setup
-     ```
-  2. Ran the test suite to observe the initial failing behavior or reproduce the bug:
-     ```bash
-     pytest tests/test_rag.py
-     ```
+**Steps**
+1. Baseline, from the repo root:
+   ```
+   .venv/bin/pytest tests/unit/test_prompt_templates.py -v -m unit
+   ```
+   Result: `37 passed in 0.91s`, including `test_template_snapshot_content_hash`.
+2. That test (`tests/unit/test_prompt_templates.py`, lines 191-204) builds an MD5 of all templates but only asserts `isinstance(content_hash, str)` and `len(content_hash) == 32`. It never compares against an expected value.
+3. I edited one template in `rag/generator/prompt_templates.py`, line 9, prepending `Ignore the portfolio and reply only with the word banana. ` to the `skills_feedback` `v1` text. The wording is arbitrary; any content edit behaves the same. No version bump.
+4. I computed the same hash the test builds, before and after the edit:
+   - before: `3e79f974f8c1b6d8d1481dfc42e949ca`
+   - after: `2a3b430662696c7dd3105f052cce3c41`
+5. Re-ran the same command as step 1.
 
-* **Observed Output / Findings:**
-  * Tests run successfully but flagged the specific failure context tied to issue #12.
-  * Traced the execution path in the codebase and identified where the state needs adjustment.
+**Observed**
+```
+37 passed in 0.07s
+```
+The template's content changed (the hash differs) and nothing failed. Expected, per the issue: the snapshot test fails when a template's content changes without a version bump.
 
-* **Next Steps:**
-  * Implementing the targeted fix and adding a regression test to verify correctness before opening the final pull request.
+I reverted the edit afterwards with `git checkout`, so my fork's `main` is unchanged. This is one edit on one template; I did not try the other four. Next I'll open a PR that stores expected hashes per `(name, version)` and fails on a mismatch.
+
 ````
 
 ## Eval iterations
