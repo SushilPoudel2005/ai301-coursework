@@ -27,9 +27,9 @@ it produced, what difficulties it presented, and what I changed because of them.
 
 I installed the issue-scout skill and wrote a fit profile covering Python, evaluation harnesses, RAG, FastAPI, and backend data work. I built a six-query search strategy and ran the first scan; it returned 536 results and after ranking filters gave me five candidates, every one of them from a repo created in the past week. One was created ten minutes before the scan. The "Repo in use" check was passing on recency alone with no adoption floor, so a solo owner could push today and pass every rubric check. I patched the rubric to require at least 20 stars or at least 2 distinct human authors in the last 5 commits. The second scan rejected three of those repos immediately and left two real candidates: CloudCaptain#199 (docs/curriculum, weak fit) and WebsiteBench#24 (Python evaluation harness, strong fit). I ran the Unit 1 harness regression after the patch and got 19/20, above the bar.
 
-**Unit 6: Voice-guard installation and repo-memory file for WebsiteBench**
+**Unit 6: Installed voice-guard, patched scope check to scope-feasible, re-graded picks, wrote CLAUDE.local.md, and reproduced the issue by reading the source**
 
-I will install the voice-guard skill, review the WebsiteBench contribution guidelines and coding style, and create the repo-memory file that records those norms before I write any code. I will fill this entry with what broke or fell short, and what I changed, when that work is done in Unit 6.
+I installed the voice-guard hook (a PreToolUse Bash hook that runs `check_voice.py` before every `gh issue/pr comment/create` command), promoted the voice guide to its canonical home at `~/.claude/voice-guard/voice-guide.md`, and added an Upstream section with rules for claims, questions, and pings. I replaced the "Bounded scope" check in my rubric with the "scope-feasible" row from the Unit 6 patch, which moves open design edges from reject to a difficulty note (straightforward / moderate / ambitious). Re-grading WebsiteBench#24 with the patched rubric gives `accept`, difficulty `moderate` (the files are named, but the remove-vs-enforce decision requires maintainer direction first). I forked and cloned the repo, confirmed there is no CONTRIBUTING.md, and wrote `CLAUDE.local.md` with the conventions I could infer from CI and code style, the exact subsystem (case_protocol.py, visual-suite.json, evaluation-contract.json), and the ruff lint commands. The reproduction itself needed no install — I read the source and ran grep to confirm all three findings: `threshold` in visual-suite.json checkpoints is never read (the scorer uses `VISUAL_SSIM_PASS = 0.99` directly), four of the five `budgets` subfields are unused, and the `case_protocol.py` module docstring cites two documentation files that do not exist. Repro-check graded the claim and repro together as accept. The only friction: repro-check flagged that my claim comment was posted before the exploration and therefore promises future work I had already done — the tense was misleading in hindsight.
 
 **Unit 7: Ship-gate run on my working branch and gate manifest**
 
@@ -74,14 +74,20 @@ The fields `budgets` and `threshold` are defined in contracts but silently ignor
 
 **Affected Components**
 
-Based on the issue description, the affected files are in the Python evaluation harness: the contract schema definition, the verifier module that reads and processes contracts, and at least two docstrings. I will confirm the exact file paths and line numbers once I clone and read the codebase in Unit 6.
+Three distinct problems, all confirmed by reading the source after cloning in Unit 6:
+
+1. **`threshold` in `tasks/*/tests/fixtures/visual-suite.json`**: every visual checkpoint declares `"threshold": 0.99`, required by authoring. The scorer in `tasks/*/tests/websitebench/harbor/case_protocol.py` (line 55) defines `VISUAL_SSIM_PASS: float = 0.99` and uses it directly — `item["ssim"] >= VISUAL_SSIM_PASS` — never reading the checkpoint's threshold field.
+
+2. **`budgets` in `tasks/*/tests/evaluation-contract.json`**: every contract declares a full budgets block with five subfields. Only `build_timeout_sec` is read in `tasks/*/tests/run.py`; the other four (`cpus`, `memory_mb`, `startup_timeout_sec`, `storage_mb`) are defined in every contract but never read.
+
+3. **Two broken docstrings in `case_protocol.py` (line 13)**: the module docstring says `"See docs/scoring-protocol.md and docs/case-design.md"`. Neither file exists under `docs/`.
 
 **Toolkit**
 
-- Tool: I read the issue body directly and cross-referenced the scout's scan-output.md grading for WebsiteBench#24
-- What it produced: a clear picture of two related problems — dead contract fields and broken docstrings — and the open question of remove vs. enforce
-- Difficulties: the issue deliberately leaves the design decision open, so I cannot fully scope the change until the maintainer responds
-- What changed: I phrased my claim comment as a question asking for the maintainer's preference before writing any code
+- Tool: I read the issue body, then cloned the repo, read `case_protocol.py`, `evaluation-contract.json`, `visual-suite.json`, and `run.py` directly, and ran grep to confirm each finding
+- What it produced: exact file paths and line numbers for all three problems; confirmed all three match the issue description
+- Difficulties: `case_protocol.py` is a large shared file copied into every task directory; the fix needs to be made to a canonical source and propagated, not applied task by task
+- What changed: I will raise the propagation question with the maintainer along with the remove-vs-enforce question
 
 ---
 
@@ -89,27 +95,43 @@ Based on the issue description, the affected files are in the Python evaluation 
 
 **Environment Setup**
 
-I will clone TIGER-AI-Lab/WebsiteBench into a fresh directory and set up a Python virtual environment with the dependencies listed in the project's requirements file. I will note the exact Python version, any install friction, and how I verified the project runs correctly before I touch anything. This work will happen in Unit 6, and I will update this section with the actual commands and output when it does.
+macOS 15.6.0 (Darwin 25.6.0), Apple Silicon, Python 3.13. Forked and cloned `TIGER-AI-Lab/WebsiteBench` to `~/WebsiteBench` (commit `3868d82`, main branch as of 2026-11-17). No install was needed for the reproduction — all three findings come from reading the source and running grep. The repo requires Python ≥3.12 and pins `harbor==0.25.0`; I did not run the full test suite since it requires Harbor containers that are not publicly available. The repo has no CONTRIBUTING.md.
 
 **Steps to Reproduce**
 
-1. Clone the repo and install dependencies
-2. Find a contract file that includes `budgets` and `threshold` fields
-3. Run the verifier against that contract with deliberately wrong or extreme values in those fields
-4. Observe that the verifier produces the same result regardless of those field values, confirming they are never read
+1. Clone the repo: `git clone https://github.com/TIGER-AI-Lab/WebsiteBench`
+2. Run from the repo root to confirm `threshold` is never read during scoring:
+   ```bash
+   grep -r "VISUAL_SSIM_PASS" tasks/apple/tests/websitebench/harbor/case_protocol.py
+   # → VISUAL_SSIM_PASS: float = 0.99
+   # → item["ssim"] >= VISUAL_SSIM_PASS for item in result["visuals"]
+   grep -rn '"threshold"' tasks/apple/tests/websitebench/harbor/case_protocol.py
+   # → no hits
+   ```
+3. Run to confirm only `build_timeout_sec` is read from the budgets block:
+   ```bash
+   grep -rn "budgets" tasks/apple/tests/run.py
+   # → contract["budgets"].get("build_timeout_sec", 900)
+   ```
+4. Run to confirm the two documentation files cited in the docstring do not exist:
+   ```bash
+   ls docs/
+   # → README.md  cloud.md  development.md  pypi.md  running.md  task-format.md  tasks.md
+   # scoring-protocol.md and case-design.md are absent
+   ```
 
 **Reproduction Evidence**
 
-- **Commit showing reproduction:** pending — will link here once I have read the verifier source and confirmed the behavior in Unit 6
-- **Screenshots/logs:** not yet available — will add verifier output showing the ignored fields once I run it
-- **My findings:** not yet available — will record what I discover when I read the verifier source and test the behavior
+- **Commit showing reproduction:** no code change yet — the reproduction is a read-only source inspection; the commit will come with the fix in Unit 7
+- **Screenshots/logs:** not applicable — grep output is shown inline in steps 2–4 above
+- **My findings:** all three findings confirmed. `threshold` in visual-suite.json checkpoints is never read; the scorer uses the hardcoded constant `VISUAL_SSIM_PASS = 0.99` instead. Four of the five `budgets` subfields in evaluation-contract.json are unused — only `build_timeout_sec` is read. The `case_protocol.py` module docstring cites `docs/scoring-protocol.md` and `docs/case-design.md`, neither of which exists.
 
 **Toolkit**
 
-- Tool: repro-check will be used to document the reproduction in Unit 6
-- What it produced: pending
-- Difficulties: pending
-- What changed: pending
+- Tool: repro-check in live mode, grading claim-draft.md and repro-draft.md together against the issue URL
+- What it produced: verdict `accept` on all required checks; flagged one marginal note: my claim comment was posted before the exploration and therefore promises future work I had already done
+- Difficulties: the scorer is a propagated copy of `case_protocol.py` across every task directory; there is no single canonical source file in the main `src/` tree, which means any fix needs a propagation strategy rather than a single-file edit
+- What changed: I added the propagation question to what I will raise with the maintainer
 
 ---
 
@@ -117,20 +139,26 @@ I will clone TIGER-AI-Lab/WebsiteBench into a fresh directory and set up a Pytho
 
 **Analysis**
 
-Based on the issue description, the root cause is that the contract parsing code defines fields for `budgets` and `threshold` but the verifier never reads them downstream. The fix depends on the maintainer's design preference: enforce means the verifier needs to be updated to read these fields and apply them as constraints on evaluation output; remove means the schema definition and any example contracts that reference them need to be cleaned up. The broken docstrings are a simpler parallel fix. I will trace the exact files and functions once I clone the codebase in Unit 6 and read the verifier source.
+After reading the source, the root cause is now concrete:
+
+- **`threshold`**: the visual scorer (`case_protocol.py` line 55, `VISUAL_SSIM_PASS = 0.99`) hardcodes the pass threshold as a constant. The checkpoint objects in `visual-suite.json` require a `threshold` field for schema compliance, but the scorer never reads it. The two values happen to match (0.99), which is why the problem has been invisible in production.
+- **`budgets`**: `tasks/*/tests/run.py` only reads `build_timeout_sec`; the other four budget fields (`cpus`, `memory_mb`, `startup_timeout_sec`, `storage_mb`) are present in every contract but have no code that acts on them.
+- **Broken docstrings**: the `case_protocol.py` module docstring (line 13) cites two files that don't exist.
+
+A new complication: `case_protocol.py` is a propagated copy inside every task directory (`tasks/*/tests/websitebench/harbor/case_protocol.py`), not a single source file. Any fix needs to go into the canonical source that the propagation script reads, then be re-propagated. I need to ask the maintainer where the canonical source is and how propagation works before I write any code.
 
 **Proposed Solution**
 
-My initial leaning is to remove the unused fields unless the maintainer says otherwise, because removing dead configuration is simpler, easier to review, and leaves no ambiguity about what the verifier does. I will not propose enforcement without the maintainer's direction since it would change evaluation behavior, not just schema shape. I will also fix the two broken docstrings in the same PR. I will not touch any other contract fields or verifier logic beyond what the issue explicitly describes.
+Still leaning toward removing unused fields rather than enforcing them, because removing dead configuration is simpler, leaves no ambiguity, and is easier to review. For the docstrings, I will replace the two dead references with an accurate description of what `case_protocol.py` does (or remove the sentence entirely if the maintainer prefers). I will not touch the SSIM scoring logic or the `build_timeout_sec` reader — those are in scope of the issue only if the maintainer decides to enforce thresholds. I will not touch anything beyond what the issue explicitly describes.
 
 **Implementation Plan**
 
-1. Read the verifier source to find which files define and consume contract fields
-2. Wait for the maintainer's response to my claim comment before writing any code (remove vs. enforce)
-3. Remove or add enforcement for `budgets` and `threshold` per the maintainer's direction
-4. Fix the two broken docstrings
-5. Update any example contracts in the repo that reference the changed fields
-6. Run the test suite and confirm nothing breaks
+1. Post a follow-up comment on the issue asking: (a) remove vs. enforce, (b) where the canonical `case_protocol.py` source is and how propagation works, (c) how to run the test suite (the contracts require Harbor containers)
+2. Wait for a response before writing any code
+3. Once direction is received: edit the canonical source, run the propagation step, update `visual-suite.json` schema (or the scorer) per the decision
+4. Fix the two broken docstrings in `case_protocol.py`
+5. Run `ruff check src/ scripts/` and `ruff format --check src/ scripts/` to pass linting
+6. Run whatever test command the maintainer points to
 
 I will record any deviations from this plan here as they happen in Unit 7.
 
@@ -162,9 +190,15 @@ I will re-run the reproduction steps after my change to confirm the verifier now
 
 Ran two issue-scout scans. Scan 1 surfaced four accepts from brand-new solo repos. Recognized that the "Repo in use" check needed an adoption floor since recency alone was not enough. Patched the rubric to require 20+ stars or 2+ distinct human authors in the last 5 commits. Ran scan 2 — three repos rejected, two real accepts remaining. WebsiteBench#24 is the stronger pick: 511 stars, Python evaluation harness, zero comments, good-first-issue label, bounded scope. Posted a claim comment asking the maintainer to confirm their preference on remove vs. enforce before I write any code. Waiting for a response.
 
+**2026-11-17 (Unit 6)**
+
+Installed voice-guard. Patched the rubric scope check from "Bounded scope" to "scope-feasible" — open design edges now raise a difficulty note instead of failing the verdict. Re-graded both picks; WebsiteBench#24 is `accept`, difficulty `moderate`. Forked and cloned the repo. Confirmed no CONTRIBUTING.md exists. Wrote `CLAUDE.local.md` with the inferred conventions, the exact subsystem files, and the ruff commands. Ran repro: all three findings confirmed by reading the source. Repro-check accepted the package.
+
+New finding from the repro: `case_protocol.py` is a propagated copy inside each task directory, not a single source file in `src/`. This means the fix needs to go through the propagation pipeline. I need to ask the maintainer about this before writing any code, in addition to the remove-vs-enforce question. Will add a comment to the issue thread once I know what I am asking.
+
 **[Date to be filled]**
 
-Will be filled in as I do the reproduction and implementation work in Units 6 and 7.
+Will be filled in as I build and test the fix in Unit 7.
 
 **Toolkit**
 
@@ -200,7 +234,9 @@ Will be filled in as I do the reproduction and implementation work in Units 6 an
 
 **Technical Skills Gained**
 
-I have not yet built the fix, so the full technical learning will come in Units 6 and 7. From the scouting work in Unit 5 I already learned something concrete: a rubric that checks whether a repo is "in use" needs a community-adoption floor, not just activity recency. A solo owner can push 10 commits today and pass every activity check while the repo has zero other contributors. That is a real insight about how to design scout heuristics, and I will carry it into future searches and into how I think about evaluating open-source health generally.
+From Unit 5: a rubric that checks whether a repo is "in use" needs a community-adoption floor, not just activity recency. A solo owner can push 10 commits today and pass every activity check while the repo has zero other contributors.
+
+From Unit 6: reading a real production codebase to find where a behavior lives takes a different mindset from reading a classroom repo. The `case_protocol.py` file is 4800 lines long and is not in `src/` — it's a propagated copy bundled into each task directory. The issue description pointed me at the right files, but it took actual source reading to understand the propagation pattern and realize the fix is not a simple single-file edit. I also learned that "confirm the issue is real" sometimes means grep and source-reading rather than actually running the failing code, especially when the runtime requires infrastructure (Docker containers, Harbor) that is not straightforward to set up locally.
 
 **Challenges Overcome**
 
@@ -218,3 +254,6 @@ I would add a minimum star count or PR merge history filter to the ranking query
 - My claim comment posted 2026-11-17: https://github.com/TIGER-AI-Lab/WebsiteBench/issues/24#issuecomment-6963901597 — the starting point of my contribution
 - My scout scan output in `~/.claude/skills/issue-scout/scan-output.md` — the ranked candidates and their rubric grades that led me here
 - My scout scan notes in `~/.claude/skills/issue-scout/scan-notes.md` — the friction log that identified the rubric gap and drove the patch
+- `tasks/apple/tests/websitebench/harbor/case_protocol.py` — the shared scoring module where `VISUAL_SSIM_PASS` is defined and the broken docstrings live
+- `tasks/apple/tests/evaluation-contract.json` — the contract schema showing the unused `budgets` subfields
+- `tasks/fandango/tests/fixtures/visual-suite.json` — a visual suite showing the unused `threshold` field in each checkpoint
