@@ -36,9 +36,9 @@ I installed the voice-guard hook (a PreToolUse Bash hook that runs `check_voice.
 I installed the ship-gate hook and its supporting verification suite, created `ship-manifest.md` to define the project's required checks (`uv sync`, `ruff check`, `ruff format`, `check_tasks.py`), and prepared my plan, test evidence, and PR draft. I applied the docstring cleanup and comment annotation across all 70 task-bundled copies of `case_protocol.py` (which are identical and contain no task-specific logic). Running the ship-gate locally validated that all project checks and my `pr-precheck` passed successfully. Due to an individual spend limit interrupt on the automated CLI precheck hook during final execution, I ran the ship-gate manually and successfully opened upstream pull request **[WebsiteBench #94](https://github.com/TIGER-AI-Lab/WebsiteBench/pull/94)** via the GitHub CLI using absolute paths.
 
 
-**Unit 8: PR-monitor and playbook for the open pull request**
+**Unit 8: PR-monitor, tracking, maintainer intersection playbook and final reflection**
 
-I will use the PR-monitor skill to track maintainer feedback on the open PR and draft a response playbook from it. I will record what the monitor read, what it drafted, and what I actually did with the draft when that work is done in Unit 8.
+I configured the PR-monitor skill with a structured response playbook covering staleness thresholds, response rules, nudge etiquette, and walk-away criteria. Running the monitor against [WebsiteBench PR #94](https://github.com/TIGER-AI-Lab/WebsiteBench/pull/94) verified that all checks and issue statuses are correctly tracked while awaiting maintainer review on the remove-vs-enforce questions.
 
 ---
 
@@ -197,16 +197,17 @@ Installed voice-guard. Patched the rubric scope check from "Bounded scope" to "s
 
 New finding from the repro: `case_protocol.py` is a propagated copy inside each task directory, not a single source file in `src/`. This means the fix needs to go through the propagation pipeline. I need to ask the maintainer about this before writing any code, in addition to the remove-vs-enforce question. Will add a comment to the issue thread once I know what I am asking.
 
-**[Date to be filled]**
+**2026-11-17(unit 7)**
 
-Will be filled in as I build and test the fix in Unit 7.
+Created branch `fix/24-sealed-contract-fields` in my forked repository. Applied the docstring cleanup and comment annotation across all 70 task-bundled copies of `case_protocol.py` via a Python script. Ran local quality checks (`uv run ruff check`, `uv run ruff format --check`, and `python scripts/check_tasks.py --code-only`), all of which passed successfully. Validated locally via ship-gate and successfully opened upstream pull request **[WebsiteBench #94](https://github.com/TIGER-AI-Lab/WebsiteBench/pull/94)** via the GitHub CLI.
 
 **Toolkit**
 
-- Tool: issue-scout for scouting; direct reading of the WebsiteBench issue page to understand the scope
-- What it produced: a clear issue choice and an open maintainer question before any code is written
-- Difficulties: none in the planning phase beyond the rubric gap already described in the scan notes
-- What changed: rubric patched; claim comment phrased as a question to get maintainer direction first
+- Tool: ship-gate, ship-manifest.md, `pr_draft.md`, and `gh pr create`
+- What it produced: all local verification checks passed and PR #94 was successfully opened upstream
+- Difficulties: Claude CLI spend limit interrupted the automated ship-gate precheck hook, which was resolved by running the ship-gate verification manually and submitting via CLI
+- What changed: used absolute paths for the PR body file and executed manual ship-gate checks successfully
+
 
 ---
 
