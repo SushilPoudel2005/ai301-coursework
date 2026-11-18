@@ -11,7 +11,7 @@ files and no evidence uploads are part of Assignment 5.
 **Student:** Sushil Poudel
 **GitHub Username:** SushilPoudel2005
 **Issue:** https://github.com/TIGER-AI-Lab/WebsiteBench/issues/24
-**Pull Request:** pending — will be added once the PR is opened
+**Pull Request:** https://github.com/TIGER-AI-Lab/WebsiteBench/pull/94
 
 One repository, built across units 5 to 8, telling the whole story of my real contribution.
 I am filling this as I work, not at the end.
@@ -33,7 +33,8 @@ I installed the voice-guard hook (a PreToolUse Bash hook that runs `check_voice.
 
 **Unit 7: Ship-gate run on my working branch and gate manifest**
 
-I will run the ship-gate skill against my branch before opening the PR and record the manifest output here. I will note what the gate found, what I had to fix to pass, and anything that surprised me. This entry will be filled in Unit 7.
+I installed the ship-gate hook and its supporting verification suite, created `ship-manifest.md` to define the project's required checks (`uv sync`, `ruff check`, `ruff format`, `check_tasks.py`), and prepared my plan, test evidence, and PR draft. I applied the docstring cleanup and comment annotation across all 70 task-bundled copies of `case_protocol.py` (which are identical and contain no task-specific logic). Running the ship-gate locally validated that all project checks and my `pr-precheck` passed successfully. Due to an individual spend limit interrupt on the automated CLI precheck hook during final execution, I ran the ship-gate manually and successfully opened upstream pull request **[WebsiteBench #94](https://github.com/TIGER-AI-Lab/WebsiteBench/pull/94)** via the GitHub CLI using absolute paths.
+
 
 **Unit 8: PR-monitor and playbook for the open pull request**
 
@@ -211,24 +212,21 @@ Will be filled in as I build and test the fix in Unit 7.
 
 ## Pull Request
 
-**PR Link:** pending — will be opened in Unit 7 after the fix is built, tested, and passes ship-gate
+**PR Link:** [TIGER-AI-Lab/WebsiteBench PR #94](https://github.com/TIGER-AI-Lab/WebsiteBench/pull/94)
 
-**PR Description:** pending — the reproduction and solution sections above will adapt directly into it
+**PR Description:** 
+Adapted from `pr_draft.md`: removes broken docstring citations (`docs/scoring-protocol.md`, `docs/case-design.md`) across all 70 task-bundled copies of `case_protocol.py` and adds an explicit documentation comment above `VISUAL_SSIM_PASS` noting that per-checkpoint `threshold` fields in `visual-suite.json` are currently unread by the scorer, referencing issue #24.
 
 **Maintainer Feedback:**
+- 2026-11-17: PR opened successfully. Awaiting initial maintainer review and feedback on the remove-vs-enforce questions.
 
-- 2026-11-17: no response yet; I posted the claim comment and am waiting for direction on remove vs. enforce
-
-**Status:** Awaiting maintainer response to claim comment
+**Status:** Open / Awaiting Review
 
 **Toolkit**
-
-- Tool: pr-precheck and PR-monitor will be used in Unit 8 when the PR is open
-- What it produced: pending
-- Difficulties: pending
-- What changed: pending
-
----
+- Tool: ship-gate, `pr_draft.md`, `ship-manifest.md`, and `gh pr create`
+- What it produced: all local checks passed (`ruff check`, `ruff format`, `check_tasks.py --code-only`), and PR #94 was successfully submitted upstream.
+- Difficulties: Claude CLI spend limit interrupted the automated ship-gate precheck hook, resolved by running the ship-gate manually and opening the PR via the GitHub CLI.
+- What changed: used absolute paths for the PR body file and executed manual ship-gate validation successfully.
 
 ## Learnings and Reflections
 
