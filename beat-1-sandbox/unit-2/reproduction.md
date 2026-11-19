@@ -25,13 +25,12 @@ SushilPoudel2005
 
 https://github.com/codepath/pathreview-ai301-fa26-s1/issues/12#issuecomment-6882704475
 
-> Hi everyone, I would like to claim this issue and work on resolving it this week. I'll review the codebase context, implement the fix/update, and open a pull request shortly. Looking forward to contributing!
+Hi everyone, I would like to claim this issue and work on resolving it this week. I'll review the codebase context, implement the fix/update, and open a pull request shortly. Looking forward to contributing!
 
 **Reproduction comment**
 
 https://github.com/codepath/pathreview-ai301-fa26-s1/issues/12#issuecomment-6883015086
 
-````markdown
 I reproduced this on current `main`: the existing snapshot test cannot fail when a prompt template changes, so the protection issue #12 asks for isn't in place yet.
 
 **Environment**
@@ -59,8 +58,6 @@ I reproduced this on current `main`: the existing snapshot test cannot fail when
 The template's content changed (the hash differs) and nothing failed. Expected, per the issue: the snapshot test fails when a template's content changes without a version bump.
 
 I reverted the edit afterwards with `git checkout`, so my fork's `main` is unchanged. This is one edit on one template; I did not try the other four. Next I'll open a PR that stores expected hashes per `(name, version)` and fails on a mismatch.
-
-````
 
 ## Eval iterations
 
